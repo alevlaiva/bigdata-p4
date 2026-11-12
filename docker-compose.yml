@@ -1,0 +1,30 @@
+# docker-compose.yml — servicio NiFi de la ampliación de la práctica P4 ──
+#
+# NiFi reproduce en flujo visual la captura de espiras ya hecha en Python
+# (InvokeHTTP -> EvaluateJsonPath -> SplitJson -> PutFile), para comparar
+# ambos enfoques. Es ampliación OPCIONAL: el recolector Python sigue siendo
+# la solución principal de la práctica.
+#
+# Arrancar:     docker compose up -d nifi
+# Entrar:       https://localhost:8443/nifi   (admin / NIFI_PASSWORD del .env)
+# Parar:        docker compose stop nifi
+#
+# Nota: "./data:/data" monta la carpeta data/ del proyecto dentro del
+# contenedor; así el procesador PutFile guarda en /data/raw/nifi y les
+# flowfiles quedan en tu disco, no atrapadas dentro del contenedor.
+
+services:
+  nifi:
+    image: apache/nifi:1.28.1
+    container_name: p4-nifi
+    ports:
+      - "8443:8443"
+    environment:
+      - SINGLE_USER_CREDENTIALS_USERNAME=admin
+      - SINGLE_USER_CREDENTIALS_PASSWORD=${NIFI_PASSWORD:?define NIFI_PASSWORD en .env}
+    volumes:
+      - nifi-data:/opt/nifi/nifi-current/conf
+      - ./data:/data
+
+volumes:
+  nifi-data:

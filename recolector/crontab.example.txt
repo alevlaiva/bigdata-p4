@@ -1,0 +1,34 @@
+# Crontab del recolector P4 (macOS cada alumno / Linux en un VPS — igual)
+#
+# Instalar (sustituye cualquier entrada anterior del recolector y conserva el resto):
+#   cd /Users/alex/bigdata-p4
+#   ( crontab -l 2>/dev/null | grep -v recolector.py; grep -v '^#' recolector/crontab.example.txt | grep -v '^$' ) | crontab -
+# Comprobar:  crontab -l
+#
+# Cron corre con entorno mínimo (sin tu PATH ni expansiones de ~):
+# por eso cada línea hace "cd" a la raíz del proyecto con ruta absoluta
+# y llama al python del venv con su ruta absoluta.
+#
+# La salida va a logs/cron.log; el "registro de vuelo" queda además en
+# data/raw/_registro/ejecuciones.csv (una línea por fuente y ejecución).
+#
+# macOS: si el script falla por "Operation not permitted", dar "Acceso
+# total a disco" a /usr/sbin/cron (Ajustes → Privacidad y seguridad).
+
+# espiras: foto por hora (fuente sin histórico: lo que no se coja, se pierde)
+5 * * * * cd /Users/alex/bigdata-p4 && ./.venv/bin/python recolector/recolector.py espiras >> logs/cron.log 2>&1
+
+# estado: nivel de tráfico por tramo, por hora
+15 * * * * cd /Users/alex/bigdata-p4 && ./.venv/bin/python recolector/recolector.py estado >> logs/cron.log 2>&1
+
+# aire: cada 6 horas (el origen carga mediciones horarias)
+20 0,6,12,18 * * * cd /Users/alex/bigdata-p4 && ./.venv/bin/python recolector/recolector.py aire >> logs/cron.log 2>&1
+
+# meteo (AEMET): predicción diaria (se elabora una vez al día). Se intenta 3 veces
+# al día porque el cron de macOS no recupera ejecuciones perdidas con el Mac
+# en reposo; las capturas repetidas se deduplican en el ETL (Bloque 4).
+30 8,13,19 * * * cd /Users/alex/bigdata-p4 && ./.venv/bin/python recolector/recolector.py meteo >> logs/cron.log 2>&1
+
+# tramos + meteo_municipal (estaciones del Geoportal): foto diaria (catálogos que
+# cambian muy lento), con 3 intentos al día por el mismo motivo que meteo
+0 9,14,20 * * * cd /Users/alex/bigdata-p4 && ./.venv/bin/python recolector/recolector.py tramos meteo_municipal >> logs/cron.log 2>&1

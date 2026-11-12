@@ -1,14 +1,19 @@
-# Datos y credenciales
-data/raw/
-data/*.csv
-data/*.json
+# Entorno virtual y variables de entorno (NUNCA versionar)
+.venv/
 .env
+*.env
 *.pem
 
-# Entornos Python
-.venv/
+# Datos crudos, registro de ejecuciones y logs (se regeneran)
+data/
+logs/
+*.parquet
+*.csv
+
+# Python / macOS
 __pycache__/
 *.pyc
+.DS_Store
 
 # Notebooks
 .ipynb_checkpoints/
