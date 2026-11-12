@@ -167,18 +167,18 @@ La regla: se recoge más seguido aquello cuya foto se pierde para siempre al no 
 
 #### Evidencia de automatización (cron)
 
-Resultado real de `data/raw/_registro/ejecuciones.csv` (29/10 – 12/11/2026):
+Resultado real de `data/raw/_registro/ejecuciones.csv` (del 29/10 al 12/11/2026, hora UTC):
 
 | Fuente | Ejecuciones | Fallos |
 | --- | ---: | ---: |
-| espiras | 166 | 0 |
-| estado | 163 | 1 |
-| aire | 19 | 1 |
-| aemet (= `meteo` actual) | 10 | 1 |
-| meteo (= `meteo_municipal` actual) | 11 | 0 |
-| tramos | 10 | 0 |
+| espiras | 173 | 0 |
+| estado | 170 | 1 |
+| aire | 21 | 1 |
+| meteo | 11 | 1 |
+| meteo_municipal | 12 | 0 |
+| tramos | 11 | 0 |
 
-Hasta el 12/11 el registro usaba `aemet` y `meteo` (capa 157); desde esa fecha se llaman `meteo` y `meteo_municipal`. Los 3 fallos quedaron registrados con su mensaje y no interrumpieron al resto de fuentes.
+`meteo` es la predicción de AEMET y `meteo_municipal` las estaciones meteorológicas del Geoportal. Hasta el 12/11 el registro las llamaba `aemet` y `meteo` respectivamente; en la tabla ya están agrupadas bajo los nombres actuales. Los 3 fallos quedaron registrados con su mensaje y no interrumpieron al resto de fuentes.
 
 ![Crontab instalado](evidencias/crontab.png)
 
@@ -223,19 +223,16 @@ done
 
 | Aspecto | Recolector Python | Flujo NiFi |
 | --- | --- | --- |
-| Tiempo de desarrollo | Más trabajo inicial: reintentos, paginación, registro de ejecuciones y escritura en Parquet hubo que programarlos (~245 líneas) | Montar los cinco procesadores es rápido; la parte lenta fue la puesta en marcha (certificado del Geoportal, volumen, contraseña y volver a importar el flujo) |
-| Facilidad para depurar un fallo | El traceback y el error de cada fuente quedan en `logs/cron.log` y en `ejecuciones.csv`, y se reproduce el fallo en local con una línea de comandos | El error aparece como aviso rojo sobre el propio procesador (el fallo `PKIX` se vio al instante en `InvokeHTTP`), pero esos avisos son temporales y no quedan en un fichero |
-| Visibilidad del estado en ejecución | Solo a posteriori, leyendo logs y el CSV | Contadores de flowfiles por procesador, colas entre ellos y *Data Provenance* de cada flowfile, en tiempo real desde la interfaz |
-| Facilidad de versionado en Git | Código de texto: diffs legibles y revisión línea a línea | `flow.json` se exporta en una sola línea de JSON con identificadores internos: se versiona, pero un cambio no se puede revisar en un diff; además no incluye las contraseñas, que hay que reponer al importarlo |
-| Recursos necesarios en el servidor | Un proceso de segundos con `requests` y `pyarrow`, que no consume nada entre ejecuciones | Un contenedor con JVM encendido de forma permanente, aunque solo trabaje una vez por hora |
-| Fiabilidad ante errores | Reintentos explícitos (3 intentos con espera creciente) y fallo registrado por fuente | `InvokeHTTP` admite reintentos, pero en este flujo las relaciones `Failure` y `Retry` están terminadas: un error se ve en pantalla y la captura se pierde hasta la siguiente hora |
-| Paginación ArcGIS | Bucle con `resultOffset` mientras `exceededTransferLimit` sea `true` | Una sola petición: vale mientras la capa quepa en una respuesta (la 208 devolvió 1.211 de una vez); si no, habría que encadenar más peticiones |
-| Formato de salida | Un Parquet (snappy, con `captura_utc`) por captura: 66 KB para espiras | 1.211 ficheros JSON pequeños por captura (500 KB de contenido, más en disco por el tamaño de bloque); hay que compactarlos antes de usarlos con Spark |
-| Registro de ejecuciones | `data/raw/_registro/ejecuciones.csv` con fuente, filas, éxito y error | No hay un fichero equivalente sin añadir más procesadores |
-| Programación | `cron` del sistema; no recupera las ejecuciones perdidas con el equipo dormido | Planificación del propio procesador (cada hora), que exige tener NiFi funcionando de forma permanente |
-| Certificados | Funcionó sin configuración | Falló con `PKIX` y requirió un almacén de confianza propio |
+| Desarrollo | Más trabajo al principio: reintentos, paginación, registro y Parquet se programan a mano (~245 líneas) | Montar los 5 procesadores es rápido, pero la puesta en marcha costó más (certificado del Geoportal, contraseña, importar el flujo) |
+| Depurar un fallo | El error queda en `ejecuciones.csv` y en `logs/cron.log`, y se reproduce en local con un comando | El fallo sale en rojo sobre el procesador (el `PKIX` se vio al instante), pero el aviso desaparece y no queda en ningún fichero |
+| Ver el estado | Solo después, leyendo logs y el CSV | En tiempo real: contadores, colas y *Data Provenance* en la interfaz |
+| Versionado en Git | Texto con diffs legibles | `flow.json` va en una sola línea y no se puede revisar en un diff; además no guarda las contraseñas |
+| Recursos | Un proceso de segundos, sin consumo entre ejecuciones | Un contenedor con JVM siempre encendido |
+| Errores y reintentos | 3 intentos con espera creciente; el fallo se anota por fuente | `Failure` y `Retry` están terminadas en este flujo: si falla, se pierde esa captura hasta la hora siguiente |
+| Datos de salida | 1 Parquet (snappy, con `captura_utc`) por captura: 66 KB | 1.211 JSON pequeños por captura; habría que compactarlos antes de usar Spark |
+| Registro de ejecuciones | `ejecuciones.csv` con fuente, filas, éxito y error | No hay equivalente sin añadir más procesadores |
 
-**Conclusión.** Para una captura periódica de una API simple y con salida en Parquet, el script Python es más ligero, más fácil de versionar y de probar, y escribe directamente el formato que necesita el Data Lake. NiFi aporta ventaja cuando hay muchas fuentes y destinos, o cuando importa ver el flujo y su estado en tiempo real sin escribir código; aquí lo que más pesó en contra fue la generación de miles de ficheros pequeños y la falta de un registro de ejecuciones propio. Para esta práctica, el recolector Python es la solución principal y NiFi queda como contraste.
+**Conclusión.** Para capturar una API sencilla de forma periódica y guardarla en Parquet, Python es más ligero, más fácil de versionar y escribe directamente el formato que necesita el Data Lake. NiFi compensa cuando hay muchas fuentes y destinos, o cuando importa ver el flujo en tiempo real sin programar. Aquí pesaron en contra los miles de ficheros pequeños y la falta de registro propio, así que el recolector Python es la solución principal y NiFi queda como contraste.
 
 #### Incidencias y hallazgos
 
