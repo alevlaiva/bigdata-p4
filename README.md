@@ -244,8 +244,3 @@ done
 - **Alcance del histórico, verificado en vivo (29/10)**: el datastore del primer recurso va del 2016-01-01 al 2021-12-31 y el del segundo del 2021-01-01 al 2022-12-31. **2021 completo está en ambos**: la suma 650.506 lo cuenta dos veces, y la deduplicación será del Bloque 4. No hay nada posterior publicado (5 datasets de aire en el portal y ninguno supera 2022; uno nuevo de febrero 2026, "2016–2020", es un subconjunto de 352.666 filas de lo ya cargado). Desde 2023 no existe foto pública del aire: la serie actual la construye el recolector desde el 29/10 (capa 156 + cron), tal y como asume el enunciado al fijar el alcance del paso 8 en 2016–2022.
 - **Compresión**: 650.506 filas × 28 columnas → 10,8 MB en Parquet (snappy), sin tocar nada.
 
-#### Próximos pasos
-
-- Bloque 3: subir capturas + histórico a la zona raw del Data Lake.
-- Bloque 4: ETL que limpie, deduplique y cruce tráfico + aire + meteo por hora.
- 
